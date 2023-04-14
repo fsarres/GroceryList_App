@@ -1,6 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-
-import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
 const appSettings = {
   databaseURL: "https://grocery-list-7a755-default-rtdb.firebaseio.com/"
@@ -12,29 +11,34 @@ const shoppingListInDB = ref(database, "shoppingList");
 
 const inputFieldEl = document.getElementById('input-field');
 const addButtonEl = document.getElementById('add-button');
-
 const shoppingListEl = document.getElementById('shopping-list');
 
-addButtonEl.addEventListener('click', function () {
-  let inputValue = inputFieldEl.value;
-
-  push(shoppingListInDB, inputValue);
-
-  clearInputFieldEl();
-
+addButtonEl.addEventListener('click', async function () {
+  let inputValue = inputFieldEl.value.trim();
+  if (inputValue !== '') {
+    try {
+      await push(shoppingListInDB, inputValue);
+      clearInputFieldEl();
+    } catch (error) {
+      alert("Error adding item to database: " + error.message);
+    }
+  } else {
+    alert("Item cannot be empty :)");
+  }
 });
 
 onValue(shoppingListInDB, function (snapshot) {
-  let itemsArray = Object.entries(snapshot.val());
-  clearShoppingListEl();
+  if (snapshot.exists()) {
+    let itemsArray = Object.entries(snapshot.val());
+    clearShoppingListEl();
 
-  for (let i = 0; i < itemsArray.length; i++) {
-    let currentItem = itemsArray[i];
+    for (let i = 0; i < itemsArray.length; i++) {
+      let currentItem = itemsArray[i];
+      appendToListEl(currentItem);
+    }
 
-    let currentItemId = currentItem[0];
-    let currentItemValue = currentItem[1];
-
-    appendToListEl(currentItemValue);
+  } else {
+    shoppingListEl.innerHTML = "No items here...yet.";
   }
 });
 
@@ -46,9 +50,21 @@ function clearInputFieldEl() {
   inputFieldEl.value = '';
 }
 
-function appendToListEl(itemValue) {
-  //shoppingListEl.innerHTML += `<li>${itemValue}</li>`;
+function appendToListEl(item) {
+  let itemID = item[0];
+  let itemValue = item[1];
 
   let newEl = document.createElement('li');
 
+  newEl.textContent = itemValue;
+  newEl.addEventListener('click', async function () {
+    try {
+      let itemInDB = ref(database, `shoppingList/${itemID}`);
+      await remove(itemInDB);
+    } catch (error) {
+      alert("Error removing item from database: " + error.message);
+    }
+  });
+
+  shoppingListEl.append(newEl);
 }
